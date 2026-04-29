@@ -68,10 +68,3 @@ python GlobalExamFinisher.py
 
 ## License
 Use at your own risk. This repository contains a small personal automation tool — no warranty provided.
-
----
-
-If you want, I can:
-- add a `requirements.txt`,
-- include an example config section in the GUI, or
-- update the README with sample screenshots.
