@@ -2,7 +2,7 @@
 
 A small GUI automation tool that helps locate and click answer buttons in a fixed-screen activity using color detection and repeated click patterns.
 
-![alt text](<screen.png>)
+![alt text](<image.png>)
 
 ## Features
 - Simple Tkinter GUI to pick click points and run/stop automation
