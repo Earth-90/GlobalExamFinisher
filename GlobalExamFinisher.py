@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 
-def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=0, log_func=print, stop_event=None, color_tolerance=5):
+def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activite, nb_levels, questions_per_level, total_questions, next_click_coords, next_target_color, cooldown_between_questions=0, log_func=print, stop_event=None, color_tolerance=5):
     x1, y1 = corner1
     x2, y2 = corner2
     region_x = min(x1, x2)
@@ -98,7 +98,10 @@ def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activi
 
 
             time.sleep(1)
-            pyautogui.click(x=960, y=1065)
+            if next_click_coords is None:
+                log_func("Next point not configured.")
+                return
+            pyautogui.click(x=next_click_coords[0], y=next_click_coords[1])
             time.sleep(2)
             
         if loop_index < nb_activite - 1:
@@ -108,7 +111,7 @@ def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activi
 
             second_region_x, second_region_y = 1000, 180
             second_region_w, second_region_h = 300, 60
-            second_target_color = (254, 108, 53)
+            second_target_color = next_target_color
             color_tolerance = 5
             
             capture = pyautogui.screenshot(region=(second_region_x, second_region_y, second_region_w, second_region_h))
@@ -163,7 +166,7 @@ def start_gui():
     time.sleep(1.5)
     root = tk.Tk()
     root.title("GlobalExam Finisher")
-    root.geometry("700x700")
+    root.geometry("1000x700")
     root.minsize(600, 600)
     root.columnconfigure(0, weight=1)
     root.rowconfigure(1, weight=1)
@@ -172,6 +175,7 @@ def start_gui():
     mainframe.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.E, tk.S))
     mainframe.columnconfigure(0, weight=1)
     mainframe.columnconfigure(1, weight=1)
+    mainframe.columnconfigure(2, weight=1)
     mainframe.rowconfigure(0, weight=0)
     mainframe.rowconfigure(1, weight=1)
 
@@ -179,9 +183,13 @@ def start_gui():
     left_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 8))
     left_frame.columnconfigure(1, weight=1)
 
-    right_frame = ttk.LabelFrame(mainframe, text="Points to Capture", padding=10)
-    right_frame.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.E, tk.S))
-    right_frame.columnconfigure(1, weight=1)
+    points_frame = ttk.LabelFrame(mainframe, text="Points", padding=10)
+    points_frame.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 8))
+    points_frame.columnconfigure(1, weight=1)
+
+    colors_frame = ttk.LabelFrame(mainframe, text="Colors", padding=10)
+    colors_frame.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.E, tk.S))
+    colors_frame.columnconfigure(1, weight=1)
 
     # Inputs
     ttk.Label(left_frame, text="Number of activities:").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -216,11 +224,11 @@ def start_gui():
     coin2_var = tk.StringVar(value='1000,900')
     ttk.Entry(left_frame, textvariable=coin2_var, width=20).grid(row=6, column=1, sticky=tk.W, pady=2)
 
-    ttk.Label(left_frame, text="Target color:").grid(row=7, column=0, sticky=tk.W, pady=(10, 2))
+    ttk.Label(colors_frame, text="Target color:").grid(row=0, column=0, sticky=tk.W, pady=(2, 2))
     target_color_var = tk.StringVar(value='(230, 255, 224)')
-    ttk.Label(left_frame, textvariable=target_color_var).grid(row=7, column=1, sticky=tk.W, pady=(10, 2))
-    target_preview = tk.Canvas(left_frame, width=42, height=24, highlightthickness=1, highlightbackground="#777")
-    target_preview.grid(row=7, column=2, padx=(10, 0), pady=(10, 2), sticky=tk.W)
+    ttk.Label(colors_frame, textvariable=target_color_var).grid(row=0, column=1, sticky=tk.W, pady=(2, 2))
+    target_preview = tk.Canvas(colors_frame, width=42, height=24, highlightthickness=1, highlightbackground="#777")
+    target_preview.grid(row=0, column=2, padx=(10, 0), pady=(2, 2), sticky=tk.W)
 
     def update_target_color_display(rgb):
         target_color_var.set(f"{rgb}")
@@ -242,46 +250,75 @@ def start_gui():
         update_target_color_display(pixel)
         gui_logger.write(f"Captured target color at ({x}, {y}): {pixel}")
 
-    ttk.Button(left_frame, text="Pick by hover", command=lambda: threading.Thread(target=pick_target_color, daemon=True).start()).grid(row=7, column=2, padx=(10, 0), pady=(10, 2))
+    ttk.Button(colors_frame, text="Pick by hover", command=lambda: threading.Thread(target=pick_target_color, daemon=True).start()).grid(row=0, column=3, padx=(10, 0), pady=(2, 2))
 
-    ttk.Label(right_frame, text="Selected color preview:").grid(row=2, column=0, sticky=tk.W, pady=(10, 2))
-    right_color_preview = tk.Canvas(right_frame, width=120, height=36, highlightthickness=1, highlightbackground="#777")
-    right_color_preview.grid(row=2, column=1, sticky=tk.W, pady=(10, 2))
-    right_color_text = ttk.Label(right_frame, textvariable=target_color_var)
-    right_color_text.grid(row=2, column=2, sticky=tk.W, padx=(10, 0), pady=(10, 2))
+    next_target_color_var = tk.StringVar(value='(254, 108, 53)')
+    next_target_preview = tk.Canvas(colors_frame, width=42, height=24, highlightthickness=1, highlightbackground="#777")
 
-    def sync_right_preview(*_):
-        value = target_color_var.get().strip().strip("()")
+    ttk.Label(colors_frame, text="Next activity color:").grid(row=2, column=0, sticky=tk.W, pady=(10, 2))
+    ttk.Label(colors_frame, textvariable=next_target_color_var).grid(row=2, column=1, sticky=tk.W, pady=(10, 2))
+    next_target_preview.grid(row=2, column=2, sticky=tk.W, padx=(10, 0), pady=(10, 2))
+
+    def update_next_target_color_display(rgb):
+        next_target_color_var.set(f"{rgb}")
+        hex_color = "#%02x%02x%02x" % rgb
+        next_target_preview.delete("all")
+        next_target_preview.create_rectangle(0, 0, 42, 24, fill=hex_color, outline=hex_color)
+
+    update_next_target_color_display((254, 108, 53))
+
+    def pick_next_target_color():
+        gui_logger.write("Pipette active for next activity color: hover the target color, then wait 3 seconds.")
+        for remaining in (3, 2, 1):
+            gui_logger.write(f"Sampling next color in {remaining}...")
+            root.update()
+            time.sleep(1)
+
+        x, y = pyautogui.position()
+        pixel = pyautogui.screenshot().getpixel((x, y))[:3]
+        update_next_target_color_display(pixel)
+        gui_logger.write(f"Captured next activity color at ({x}, {y}): {pixel}")
+
+    ttk.Button(colors_frame, text="Pick next color", command=lambda: threading.Thread(target=pick_next_target_color, daemon=True).start()).grid(row=2, column=3, padx=(10, 0), pady=(10, 2))
+
+    def sync_next_preview(*_):
+        value = next_target_color_var.get().strip().strip("()")
         try:
             parts = [int(part.strip()) for part in value.split(",")]
             if len(parts) == 3:
                 hex_color = "#%02x%02x%02x" % tuple(parts)
-                right_color_preview.delete("all")
-                right_color_preview.create_rectangle(0, 0, 120, 36, fill=hex_color, outline=hex_color)
+                next_target_preview.delete("all")
+                next_target_preview.create_rectangle(0, 0, 42, 24, fill=hex_color, outline=hex_color)
         except Exception:
             pass
 
-    target_color_var.trace_add("write", sync_right_preview)
-    sync_right_preview()
+    next_target_color_var.trace_add("write", sync_next_preview)
+    sync_next_preview()
 
-    ttk.Label(right_frame, text="First point (X,Y):").grid(row=0, column=0, sticky=tk.W, pady=2)
+    ttk.Label(points_frame, text="First point (X,Y):").grid(row=0, column=0, sticky=tk.W, pady=2)
     first_coord_var = tk.StringVar(value='')
-    ttk.Label(right_frame, textvariable=first_coord_var).grid(row=0, column=1, sticky=tk.W, pady=2)
+    ttk.Label(points_frame, textvariable=first_coord_var).grid(row=0, column=1, sticky=tk.W, pady=2)
 
-    ttk.Button(right_frame, text="Pick First Click", command=lambda: threading.Thread(target=pick_coord, args=(first_coord_var,), daemon=True).start()).grid(row=0, column=2, padx=(10, 0), pady=2)
+    ttk.Button(points_frame, text="Pick Point", command=lambda: threading.Thread(target=pick_coord, args=(first_coord_var,), daemon=True).start()).grid(row=0, column=2, padx=(10, 0), pady=2)
 
-    ttk.Label(right_frame, text="Second point (Y only):").grid(row=1, column=0, sticky=tk.W, pady=2)
+    ttk.Label(points_frame, text="Second point (Y only):").grid(row=1, column=0, sticky=tk.W, pady=2)
     second_y_var = tk.StringVar(value='')
-    ttk.Label(right_frame, textvariable=second_y_var).grid(row=1, column=1, sticky=tk.W, pady=2)
+    ttk.Label(points_frame, textvariable=second_y_var).grid(row=1, column=1, sticky=tk.W, pady=2)
 
-    ttk.Button(right_frame, text="Pick Second Y", command=lambda: threading.Thread(target=pick_coord, args=(second_y_var, 'y'), daemon=True).start()).grid(row=1, column=2, padx=(10, 0), pady=2)
+    ttk.Button(points_frame, text="Pick Point", command=lambda: threading.Thread(target=pick_coord, args=(second_y_var, 'y'), daemon=True).start()).grid(row=1, column=2, padx=(10, 0), pady=2)
+
+    ttk.Label(points_frame, text="Next point (X,Y):").grid(row=2, column=0, sticky=tk.W, pady=2)
+    next_click_var = tk.StringVar(value='')
+    ttk.Label(points_frame, textvariable=next_click_var).grid(row=2, column=1, sticky=tk.W, pady=2)
+
+    ttk.Button(points_frame, text="Pick Point", command=lambda: threading.Thread(target=pick_coord, args=(next_click_var,), daemon=True).start()).grid(row=2, column=2, padx=(10, 0), pady=2)
 
     stop_event = threading.Event()
     worker_thread = {'thread': None}
 
     # Log window
     log_frame = ttk.LabelFrame(mainframe, text="Logs", padding=10)
-    log_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W), pady=(10, 0))
+    log_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.N, tk.S, tk.E, tk.W), pady=(10, 0))
     log_frame.columnconfigure(0, weight=1)
     log_frame.rowconfigure(0, weight=1)
 
@@ -351,6 +388,21 @@ def start_gui():
             gui_logger.write("Please pick the first point and the second Y value.")
             return
 
+        next_click = get_tuple_from_str(next_click_var.get())
+        if not next_click:
+            gui_logger.write("Please pick the next point used to continue after each level.")
+            return
+
+        try:
+            next_color_text = next_target_color_var.get().strip().strip('()')
+            next_color_parts = [int(part.strip()) for part in next_color_text.split(',')]
+            if len(next_color_parts) != 3:
+                raise ValueError("Next activity color must have 3 components")
+            NEXT_TARGET_COLOR = tuple(next_color_parts)
+        except Exception as e:
+            gui_logger.write(f"Invalid next activity color: {e}")
+            return
+
         try:
             color_text = target_color_var.get().strip().strip('()')
             target_parts = [int(part.strip()) for part in color_text.split(',')]
@@ -375,7 +427,7 @@ def start_gui():
 
         def run():
             try:
-                click_and_find_color(CLICS, coin1, coin2, COULEUR_CIBLE, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=cooldown, log_func=gui_logger.write, stop_event=stop_event, color_tolerance=tolerance)
+                click_and_find_color(CLICS, coin1, coin2, COULEUR_CIBLE, nb_activite, nb_levels, questions_per_level, total_questions, next_click, NEXT_TARGET_COLOR, cooldown_between_questions=cooldown, log_func=gui_logger.write, stop_event=stop_event, color_tolerance=tolerance)
                 gui_logger.write(f"=" * 66)
                 gui_logger.write(f"All activities finished.")
             except Exception as e:
