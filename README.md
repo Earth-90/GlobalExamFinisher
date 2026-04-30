@@ -2,16 +2,22 @@
 
 A small GUI automation tool that helps locate and click answer buttons in a fixed-screen activity using color detection and repeated click patterns.
 
-![alt text](<image.png>)
+![](image.png)
 
 ## Features
 - Simple Tkinter GUI to pick click points and run/stop automation
 - Configurable activity count, question totals, questions per level, and screenshot region
 - Color-based solution detection inside a user-defined region
 
+Additional UI improvements:
+- The interface is now organized into three categories: **Settings**, **Points**, and **Colors** for clearer workflow.
+- Two pipettes: one for the answer/solution color and one for the "next activity" button color — use the "Pick by hover" buttons and hover the mouse over the desired color; the picker samples the pixel after a 3-second countdown.
+- Each pipette shows a small color preview next to the RGB text so you can visually confirm the selection.
+- The "Next" click coordinate is now configurable via a "Pick Point" button (replaces the previous hard-coded coordinate).
+- A color tolerance slider (0–15) lets you control how permissive the color-matching is.
+
 ## Requirements
 - Python 3.8+
-- Windows (tested)
 - Python packages:
   - `pyautogui`
   - `Pillow`
@@ -36,9 +42,13 @@ python GlobalExamFinisher.py
 
 2. Use the GUI:
 - Set `Number of activities`, `Total questions`, and `Questions per level`.
-- Click `Pick First Click` and follow the 3-second countdown to capture the first answer button coordinates (X,Y).
-- Click `Pick Second Y` to capture the vertical spacing (Y coordinate) used to compute subsequent answer positions.
 - Adjust the analysis corners if needed (Corner 1 / Corner 2 define the screenshot region where the script searches for the target color).
+- In the **Colors** panel:
+  - Use `Pick by hover` to capture the answer/solution color (hover the cursor over the color and wait 3 seconds).
+  - Use `Pick next color` to capture the color used to detect the "next activity" button.
+  - Verify each color with its small preview and RGB text displayed beside it.
+- In the **Points** panel:
+  - Use `Pick Point` to capture the coordinate the script will click to continue to the next level (replaces the previous fixed coordinate).
 - Press `Start` to begin automation and `Stop` to request a graceful stop.
 
 ## Configuration (GUI fields)
