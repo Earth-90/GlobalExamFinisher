@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 
-def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=0, log_func=print, stop_event=None):
+def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=0, log_func=print, stop_event=None, color_tolerance=5):
     x1, y1 = corner1
     x2, y2 = corner2
     region_x = min(x1, x2)
@@ -49,8 +49,9 @@ def click_and_find_color(click_coords, corner1, corner2, target_color, nb_activi
                 for offset_x in range(largeur):
                     for offset_y in range(hauteur):
                         pixel_courant = capture.getpixel((offset_x, offset_y))
+                        pixel_rgb = pixel_courant[:3]
 
-                        if pixel_courant == target_color:
+                        if all(abs(pixel_rgb[i] - target_color[i]) <= color_tolerance for i in range(3)):
                             absolu_x = region_x + offset_x
                             absolu_y = region_y + offset_y
                             couleur_trouvee = True
@@ -162,7 +163,7 @@ def start_gui():
     time.sleep(1.5)
     root = tk.Tk()
     root.title("GlobalExam Finisher")
-    root.geometry("600x600")
+    root.geometry("700x700")
     root.minsize(600, 600)
     root.columnconfigure(0, weight=1)
     root.rowconfigure(1, weight=1)
@@ -199,14 +200,69 @@ def start_gui():
     cooldown_var = tk.StringVar(value='0')
     ttk.Entry(left_frame, textvariable=cooldown_var, width=12).grid(row=3, column=1, sticky=tk.W, pady=2)
 
-    # Region corner entries
-    ttk.Label(left_frame, text="Corner 1 (x,y):").grid(row=4, column=0, sticky=tk.W, pady=(10, 2))
-    coin1_var = tk.StringVar(value='900,200')
-    ttk.Entry(left_frame, textvariable=coin1_var, width=20).grid(row=4, column=1, sticky=tk.W, pady=(10, 2))
+    ttk.Label(left_frame, text="Color tolerance:").grid(row=4, column=0, sticky=tk.W, pady=2)
+    tolerance_var = tk.IntVar(value=5)
+    tolerance_slider = ttk.Scale(left_frame, from_=0, to=15, orient=tk.HORIZONTAL, variable=tolerance_var)
+    tolerance_slider.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=2)
+    tolerance_value = ttk.Label(left_frame, textvariable=tolerance_var, width=3)
+    tolerance_value.grid(row=4, column=2, sticky=tk.W, padx=(8, 0), pady=2)
 
-    ttk.Label(left_frame, text="Corner 2 (x,y):").grid(row=5, column=0, sticky=tk.W, pady=2)
+    # Region corner entries
+    ttk.Label(left_frame, text="Corner 1 (x,y):").grid(row=5, column=0, sticky=tk.W, pady=(10, 2))
+    coin1_var = tk.StringVar(value='900,200')
+    ttk.Entry(left_frame, textvariable=coin1_var, width=20).grid(row=5, column=1, sticky=tk.W, pady=(10, 2))
+
+    ttk.Label(left_frame, text="Corner 2 (x,y):").grid(row=6, column=0, sticky=tk.W, pady=2)
     coin2_var = tk.StringVar(value='1000,900')
-    ttk.Entry(left_frame, textvariable=coin2_var, width=20).grid(row=5, column=1, sticky=tk.W, pady=2)
+    ttk.Entry(left_frame, textvariable=coin2_var, width=20).grid(row=6, column=1, sticky=tk.W, pady=2)
+
+    ttk.Label(left_frame, text="Target color:").grid(row=7, column=0, sticky=tk.W, pady=(10, 2))
+    target_color_var = tk.StringVar(value='(230, 255, 224)')
+    ttk.Label(left_frame, textvariable=target_color_var).grid(row=7, column=1, sticky=tk.W, pady=(10, 2))
+    target_preview = tk.Canvas(left_frame, width=42, height=24, highlightthickness=1, highlightbackground="#777")
+    target_preview.grid(row=7, column=2, padx=(10, 0), pady=(10, 2), sticky=tk.W)
+
+    def update_target_color_display(rgb):
+        target_color_var.set(f"{rgb}")
+        hex_color = "#%02x%02x%02x" % rgb
+        target_preview.delete("all")
+        target_preview.create_rectangle(0, 0, 42, 24, fill=hex_color, outline=hex_color)
+
+    update_target_color_display((230, 255, 224))
+
+    def pick_target_color():
+        gui_logger.write("Pipette active: hover the target color, then wait 3 seconds.")
+        for remaining in (3, 2, 1):
+            gui_logger.write(f"Sampling in {remaining}...")
+            root.update()
+            time.sleep(1)
+
+        x, y = pyautogui.position()
+        pixel = pyautogui.screenshot().getpixel((x, y))[:3]
+        update_target_color_display(pixel)
+        gui_logger.write(f"Captured target color at ({x}, {y}): {pixel}")
+
+    ttk.Button(left_frame, text="Pick by hover", command=lambda: threading.Thread(target=pick_target_color, daemon=True).start()).grid(row=7, column=2, padx=(10, 0), pady=(10, 2))
+
+    ttk.Label(right_frame, text="Selected color preview:").grid(row=2, column=0, sticky=tk.W, pady=(10, 2))
+    right_color_preview = tk.Canvas(right_frame, width=120, height=36, highlightthickness=1, highlightbackground="#777")
+    right_color_preview.grid(row=2, column=1, sticky=tk.W, pady=(10, 2))
+    right_color_text = ttk.Label(right_frame, textvariable=target_color_var)
+    right_color_text.grid(row=2, column=2, sticky=tk.W, padx=(10, 0), pady=(10, 2))
+
+    def sync_right_preview(*_):
+        value = target_color_var.get().strip().strip("()")
+        try:
+            parts = [int(part.strip()) for part in value.split(",")]
+            if len(parts) == 3:
+                hex_color = "#%02x%02x%02x" % tuple(parts)
+                right_color_preview.delete("all")
+                right_color_preview.create_rectangle(0, 0, 120, 36, fill=hex_color, outline=hex_color)
+        except Exception:
+            pass
+
+    target_color_var.trace_add("write", sync_right_preview)
+    sync_right_preview()
 
     ttk.Label(right_frame, text="First point (X,Y):").grid(row=0, column=0, sticky=tk.W, pady=2)
     first_coord_var = tk.StringVar(value='')
@@ -295,6 +351,18 @@ def start_gui():
             gui_logger.write("Please pick the first point and the second Y value.")
             return
 
+        try:
+            color_text = target_color_var.get().strip().strip('()')
+            target_parts = [int(part.strip()) for part in color_text.split(',')]
+            if len(target_parts) != 3:
+                raise ValueError("Target color must have 3 components")
+            COULEUR_CIBLE = tuple(target_parts)
+        except Exception as e:
+            gui_logger.write(f"Invalid target color: {e}")
+            return
+
+        tolerance = int(tolerance_var.get())
+
         FIRST_CLICK = first
         CLICK_STEP_Y = second_y - first[1]
         click_count = min(questions_per_level, total_questions)
@@ -302,13 +370,12 @@ def start_gui():
 
         coin1 = get_tuple_from_str(coin1_var.get()) or (900, 200)
         coin2 = get_tuple_from_str(coin2_var.get()) or (1000, 900)
-        COULEUR_CIBLE = (230, 255, 224)
 
         stop_event.clear()
 
         def run():
             try:
-                click_and_find_color(CLICS, coin1, coin2, COULEUR_CIBLE, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=cooldown, log_func=gui_logger.write, stop_event=stop_event)
+                click_and_find_color(CLICS, coin1, coin2, COULEUR_CIBLE, nb_activite, nb_levels, questions_per_level, total_questions, cooldown_between_questions=cooldown, log_func=gui_logger.write, stop_event=stop_event, color_tolerance=tolerance)
                 gui_logger.write(f"=" * 66)
                 gui_logger.write(f"All activities finished.")
             except Exception as e:
@@ -336,7 +403,7 @@ COIN1 = (900, 200)
 COIN2 = (1000, 900)
 
 # Target color in RGB format (Red, Green, Blue). Example: pure red.
-COULEUR_CIBLE = (230, 255, 224)
+COULEUR_CIBLE = (240, 253, 229)
 
 # --- Exécution ---
 
